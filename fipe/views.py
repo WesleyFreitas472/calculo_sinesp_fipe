@@ -9,44 +9,64 @@ class CalculaFipe(APIView):
 	def get(self,request,*args,**kwargs):
 		ano = str(request.GET['ano'])
 		modelo = request.GET['modelo']
-		a,b,c = self.calcula(modelo,ano)
-		
-		return Response({'ano':a,'modelo':b,'valor_medio':c})
+		modelos = self.busca_modelos(modelo,ano)
+		d = self.calcula(modelos)
+		return Response(d)
 
-	def calcula(self,veiculo,ano):
-		print('aqui')
+	def busca_modelos(self,veiculo,ano):
+		'''
+		Busca modelos de veiculos parecidos com o nome passado
+		'''
 		if '/' in veiculo:
 			palavras_chave = veiculo.split('/')
 			if palavras_chave[0] == 'I':
-					palavras_chave = palavras_chave[1].split(' ')
+					palavras_chave = palavras_chave[1].split(' ')[1:]
 			else:
-				palavras_chave = [palavras_chave[0]] + palavras_chave[1].split(' ')
-
-			modelos = Modelo.objects.filter(Q(veiculo__marca__nome__icontains=palavras_chave[0]),
-				Q(veiculo__nome__istartswith=palavras_chave[1])
-				|Q(veiculo__nome__icontains=re.sub('[^a-zA-Z]','',palavras_chave[1])),Q(ano=ano))
-			if len(modelos) == 0:
-				#Nao achou o carro com a marca e ano. Procurar o carro sem a marca
-
-				modelos = Modelo.objects.filter(
-					Q(veiculo__nome__istartswith=re.sub('[^a-zA-Z]','',palavras_chave[1]))
-					|Q(veiculo__nome__icontains=re.sub('[^a-zA-Z]','',palavras_chave[1])),Q(ano=ano))
+				palavras_chave = palavras_chave[1].split(' ')
+			q = Q(marca__icontains=palavras_chave[0])
+			print(q)
+			modelos = Modelo.objects.filter(q,Q(ano=ano))
+			print(modelos)
+			m_aux = modelos
 			for palavra in palavras_chave[1:]:
-				for word in palavra:
-					m_aux = modelos.filter(veiculo__nome__iregex=word)
-					if len(m_aux) != 0:
-						modelos = m_aux
-			if len(modelos) > 0:
-				soma = 0
-				i = 1
-				tipo_veiculo = modelos[0].veiculo.marca.tipo_veiculo
-				for modelo in modelos:
-					soma += float(modelo.preco[2:].replace('.','').replace(',','.'))
-					i += 1
-				return ano,veiculo,soma/i
-				
-			else:
-				return ano,veiculo,'erro'
+				modelos_aux = modelos.filter(marca__icontains=palavra)
+				if len(modelos_aux) == 0:
+					for word in palavra:
+						if word == '':
+							continue
+						print(word)
+						modelos = modelos.filter(marca__icontains=word)
+						if len(modelos) != 0:
+							m_aux = modelos
+						else:
+							modelos = m_aux
+				else:
+					modelos = modelos_aux
+			return modelos
+
+	def calcula(self,modelos):
+		'''
+		Monta o json de resposta com o valor medio
+		'''
+		if modelos is not None and len(modelos) > 0:
+			soma = 0
+			i = 0
+			d = {'modelos':[]}
+			tipo_veiculo = modelos[0].veiculo.marca.tipo_veiculo
+			d['provavel_tipo_veiculo'] = tipo_veiculo
+			for modelo in modelos:
+				d['modelos'].append({
+					'modelo':modelo.veiculo.nome,
+					'preco':modelo.preco,
+					'ano':modelo.ano,
+					'tipo_veiculo':modelo.veiculo.marca.tipo_veiculo
+				})
+				soma += float(modelo.preco[2:].replace('.','').replace(',','.'))
+				i += 1
+			d['valor_medio'] =  '%.2f' % float(soma/i)
+			return d
+		else:
+			return {'valor_medio':None,'message':'modelo nao encontrado'}
 				
 
 
