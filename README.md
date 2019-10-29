@@ -6,7 +6,7 @@ Sistema hospedado em wesleyfreitas472.pythonanywhere.com
 
 ## Exemplo
 	import requests
-	r = requests.get(f'http://wesleyfreitas472.pythonanywhere.com/teste?ano=2018&modelo=FIAT/SIENA ATTRACT 1.0')
+	r = requests.get(f'http://wesleyfreitas472.pythonanywhere.com/consulta?ano=2018&modelo=FIAT/SIENA ATTRACT 1.0')
 	print(r.json())
 
 ## Retorno
